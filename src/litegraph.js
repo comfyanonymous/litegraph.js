@@ -13760,15 +13760,29 @@ LGraphNode.prototype.executeAction = function(action)
         }
 
         //entries
-        var num = 0;
-        for (var i=0; i < values.length; i++) {
-            var name = values.constructor == Array ? values[i] : i;
-            if (name != null && name.constructor !== String) {
-                name = name.content === undefined ? String(name) : name.content;
+        var directories = {};
+        for (var i = 0; i < values.length; i++) {
+          var name = values.constructor == Array ? values[i] : i;
+          if (name != null && name.constructor !== String) {
+              name = name.content === undefined ? String(name) : name.content;
+          }
+          var value = values[i].constructor !== String ? values[i] : { content: values[i], original: values[i] };
+          value.content = value.content || name;
+          var directory = name.substring(0, name.search(/\/|\\/));
+          if (!directories[directory]) {
+              directories[directory] = [];
+          }
+          value.content = value.content.replace(directory, "");
+          directories[directory].push(value);
+        }
+        for (var directory in directories) {
+          if (directory === "") {
+            for (value of directories[directory]) {
+              this.addItem(value.content, value.original, options);
             }
-            var value = values[i];
-            this.addItem(name, value, options);
-            num++;
+          } else  {
+            this.addItem(directory, {submenu: {...options, options: directories[directory]}}, {autoopen: true});
+          }
         }
 
         //close on leave? touch enabled devices won't work TODO use a global device detector and condition on that
