@@ -8595,7 +8595,86 @@ const globalExport = {};
                 node.size[1] * 0.5 +
                 (this.canvas.height * 0.5) / (this.ds.scale * dpi);
             this.setDirty(true, true);
+
+            if (this.onPositionChanged) {
+                this.onPositionChanged({
+                    x: this.ds.offset[0],
+                    y: this.ds.offset[1]
+                })
+            }
         }
+
+        /**
+         * Centers the camera on a given node (animated version)
+         * @method animateToNode
+         **/
+        animateToNode(node, duration = 350, zoom = 0.75, easing = "easeInOutQuad") {
+            let animationId = null;
+            const startTimestamp = performance.now();
+            const startX = this.ds.offset[0];
+            const startY = this.ds.offset[1];
+            const startScale = this.ds.scale;
+            const cw = this.canvas.width / window.devicePixelRatio;
+            const ch = this.canvas.height / window.devicePixelRatio;
+          
+            let targetScale = startScale;
+            let targetX = startX;
+            let targetY = startY;
+          
+            if (zoom > 0) {
+                const targetScaleX = (zoom * cw) / Math.max(node.size[0], 300);
+                const targetScaleY = (zoom * ch) / Math.max(node.size[1], 300);
+            
+                // Choose the smaller scale to ensure the node fits into the viewport
+                // Ensure we don't go over the max scale
+                targetScale = Math.min(targetScaleX, targetScaleY, this.ds.max_scale);
+                targetX = -node.pos[0] - node.size[0] * 0.5 + (cw * 0.5) / targetScale;
+                targetY = -node.pos[1] - node.size[1] * 0.5 + (ch * 0.5) / targetScale;
+            } else {
+                targetX = -node.pos[0] - node.size[0] * 0.5 + (cw * 0.5) / targetScale;
+                targetY = -node.pos[1] - node.size[1] * 0.5 + (ch * 0.5) / targetScale;
+            }
+          
+            const easeFunctions = {
+                linear: (t) => t,
+                easeInQuad: (t) => t * t,
+                easeOutQuad: (t) => t * (2 - t),
+                easeInOutQuad: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
+            };
+            const easeFunction = easeFunctions[easing] || easeFunctions.linear;
+          
+            const animate = (timestamp) => {
+                const elapsed = timestamp - startTimestamp;
+                const progress = Math.min(elapsed / duration, 1);
+                const easedProgress = easeFunction(progress);
+            
+                this.ds.offset[0] = startX + (targetX - startX) * easedProgress;
+                this.ds.offset[1] = startY + (targetY - startY) * easedProgress;
+            
+                if (zoom > 0) {
+                   this.ds.scale = startScale + (targetScale - startScale) * easedProgress;
+                }
+            
+                this.setDirty(true, true);
+            
+                if (this.onPositionChanged) {
+                    this.onPositionChanged({
+                        x: this.ds.offset[0],
+                        y: this.ds.offset[1],
+                        scale: this.ds.scale,
+                    });
+                }
+            
+                if (progress < 1) {
+                    animationId = requestAnimationFrame(animate);
+                } else {
+                    cancelAnimationFrame(animationId);
+                }
+            };
+          
+            animationId = requestAnimationFrame(animate);
+        }       
+
         /**
              * adds some useful properties to a mouse event, like the position in graph coordinates
              * @method adjustMouseEvent
