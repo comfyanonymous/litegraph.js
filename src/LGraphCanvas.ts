@@ -327,6 +327,8 @@ export class LGraphCanvas {
     onBeforeChange?(graph: LGraph): void
     /** called after modifying the graph */
     onAfterChange?(graph: LGraph): void
+    onPositionChanged?: (position: { x: number, y: number }) => void
+    onZoomChanged?: (scale: number) => void
     onClear?: () => void
     /** called after moving a node */
     onNodeMoved?: (node_dragged: LGraphNode) => void
@@ -341,6 +343,7 @@ export class LGraphCanvas {
     onShowNodePanel?: (n: LGraphNode) => void
     onNodeSelected?: (node: LGraphNode) => void
     onNodeDeselected?: (node: LGraphNode) => void
+    onNodeUpdated?: (node: LGraphNode) => void
     onRender?: (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => void
     /** Implement this function to allow conversion of widget types to input types, e.g. number -> INT or FLOAT for widget link validation checks */
     getWidgetLinkType?: (widget: IWidget, node: LGraphNode) => string | null | undefined
@@ -2284,6 +2287,13 @@ export class LGraphCanvas {
             this.ds.offset[0] += delta[0] / this.ds.scale
             this.ds.offset[1] += delta[1] / this.ds.scale
             this.#dirty()
+
+            if (this.onPositionChanged) {
+                this.onPositionChanged({
+                    x: this.ds.offset[0],
+                    y: this.ds.offset[1]
+                })
+            }
         } else if ((this.allow_interaction || (node && node.flags.allow_interaction)) && !this.read_only) {
             if (this.connecting_links) this.dirty_canvas = true
 
@@ -2733,6 +2743,17 @@ export class LGraphCanvas {
 
         this.ds.changeScale(scale, [e.clientX, e.clientY])
 
+        if (this.onZoomChanged) {
+            this.onZoomChanged(scale)
+        }
+    
+        if (this.onPositionChanged) {
+            this.onPositionChanged({
+                x: this.ds.offset[0],
+                y: this.ds.offset[1]
+            })
+        }
+        
         this.graph.change()
 
         e.preventDefault()
@@ -3361,6 +3382,13 @@ export class LGraphCanvas {
             node.size[1] * 0.5 +
             (this.canvas.height * 0.5) / (this.ds.scale * dpi)
         this.setDirty(true, true)
+
+        if (this.onPositionChanged) {
+            this.onPositionChanged({
+                x: this.ds.offset[0],
+                y: this.ds.offset[1]
+            })
+        }
     }
     /**
      * adds some useful properties to a mouse event, like the position in graph coordinates
@@ -7900,6 +7928,13 @@ export class LGraphCanvas {
             }
 
             this.setDirty(true, true)
+
+            if (this.onPositionChanged) {
+                this.onPositionChanged({
+                    x: this.ds.offset[0],
+                    y: this.ds.offset[1]
+                })
+            }
 
             if (progress < 1) {
                 animationId = requestAnimationFrame(animate)
